@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify
 from sqlalchemy import text
 import pandas as pd
-from app.database.connection import engine  # Absolute import from your structure
+from ..database.connection import engine  # Absolute import from your structure
 
 # Create a Blueprint (modular routes)
 bp = Blueprint('api', __name__)
