@@ -1,0 +1,81 @@
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+from datetime import datetime
+import pandas as pd
+import requests
+import psycopg2
+
+# Extract
+def extract_crypto_data():
+    url = "https://api.coingecko.com/api/v3/coins/markets"
+    params = {
+        'vs_currency': 'usd',
+        'order': 'market_cap_desc',
+        'per_page': 10,
+        'page': 1,
+        'sparkline': False
+    }
+    response = requests.get(url, params=params)
+    data = response.json()
+    df = pd.DataFrame(data)
+    df.to_csv('/opt/airflow/crypto_data.csv', index=False)
+
+# Transform
+def transform_data():
+    df = pd.read_csv('/opt/airflow/crypto_data.csv')
+    df = df[['id', 'symbol', 'current_price', 'market_cap', 'total_volume']]
+    df['market_cap_to_volume'] = df['market_cap'] / df['total_volume']
+    df.to_csv('/opt/airflow/crypto_data_cleaned.csv', index=False)
+
+# Load
+def load_to_postgres():
+    df = pd.read_csv('/opt/airflow/crypto_data_cleaned.csv')
+    df['fetched_at'] = datetime.utcnow()  # Add timestamp
+
+    conn = psycopg2.connect(
+        host="postgres",
+        database="crypto",
+        user="airflow",
+        password="airflow"
+    )
+    cur = conn.cursor()
+
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS crypto_prices (
+            id TEXT,
+            symbol TEXT,
+            current_price FLOAT,
+            market_cap BIGINT,
+            total_volume BIGINT,
+            market_cap_to_volume FLOAT,
+            fetched_at TIMESTAMP
+        )
+    """)
+
+    for _, row in df.iterrows():
+        cur.execute("""
+            INSERT INTO crypto_prices (
+                id, symbol, current_price, market_cap, total_volume, market_cap_to_volume, fetched_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, tuple(row))
+
+    conn.commit()
+    cur.close()
+    conn.close()
+
+# DAG definition
+default_args = {
+    'start_date': datetime(2024, 1, 1),
+    'retries': 1
+}
+
+with DAG('crypto_etl_pipeline',
+         schedule_interval='*/1 * * * *',  # every 10 minutes
+         default_args=default_args,
+         catchup=False) as dag:
+
+    t1 = PythonOperator(task_id='extract', python_callable=extract_crypto_data)
+    t2 = PythonOperator(task_id='transform', python_callable=transform_data)
+    t3 = PythonOperator(task_id='load', python_callable=load_to_postgres)
+
+    t1 >> t2 >> t3
