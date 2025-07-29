@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: crypto
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # Airflow Service
+  airflow:
+    build:
+      context: .
+      dockerfile: Dockerfile  # Your main Dockerfile
+    depends_on:
+      - postgres
+    environment:
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/crypto
+      AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
+    volumes:
+      - ./app/etl:/opt/airflow/dags  # Maps your ETL folder to Airflow DAGs
+    ports:
+      - "8080:8080"
+    command: >
+      bash -c "airflow db init &&
+               airflow users create --username admin --password admin --firstname admin --lastname admin --role Admin --email admin@example.com &&
+               airflow scheduler & airflow webserver"
+
+  # Flask API Service (NEW)
+  web:
+    build: .
+    depends_on:
+      - postgres
+    environment:
+      DATABASE_URL: postgresql+psycopg2://airflow:airflow@postgres:5432/crypto
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./app:/app/app  # For live code reloading
+
+volumes:
+  pgdata:
