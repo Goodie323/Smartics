@@ -250,7 +250,7 @@
       // Set last updated time
       lastUpdatedEl.textContent = `Last updated: ${new Date().toLocaleString()}`;
       
-      fetch("http://localhost:5000/api/data")
+      fetch("https://smartics.onrender.com/")
         .then(response => {
           if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
