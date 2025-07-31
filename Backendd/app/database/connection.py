@@ -18,7 +18,8 @@ def get_engine():
     return engine
 
 def create_table_if_not_exists():
-    with engine.connect() as conn:
+    # engine.begin() opens a transaction and commits on exit
+    with engine.begin() as conn:
         conn.execute(text("""
             CREATE TABLE IF NOT EXISTS crypto_prices (
                 id SERIAL PRIMARY KEY,
