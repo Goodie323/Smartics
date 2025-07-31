@@ -1,7 +1,7 @@
 from flask import Flask, jsonify
 from flask_cors import CORS
 from app.api.routes import bp  # Import the Blueprint
-from app.db import create_table_if_not_exists  # Optional: create table on startup
+from app.database import create_table_if_not_exists  # Optional: create table on startup
 
 app = Flask(__name__)
 CORS(app)

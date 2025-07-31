@@ -22,7 +22,7 @@ services:
       - postgres
     environment:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
-      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres:5432/crypto
+      AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://user:password@host:port/dbname 
       AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     volumes:
       - ./app/etl:/opt/airflow/dags  # Maps your ETL folder to Airflow DAGs
