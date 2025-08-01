@@ -11,9 +11,9 @@ def get_data():
     try:
         with engine.connect() as conn:
             df = pd.read_sql("""
-                SELECT DISTINCT ON (id) * 
+                SELECT DISTINCT ON (symbol) * 
                 FROM crypto_prices 
-                ORDER BY id, fetched_at DESC
+                ORDER BY symbol, fetched_at DESC
             """, conn)
         return jsonify({
             "data": df.to_dict(orient="records"),
@@ -29,9 +29,9 @@ def get_raw():
     try:
         with engine.connect() as conn:
             result = conn.execute(text("""
-                SELECT DISTINCT ON (id) * 
+                SELECT DISTINCT ON (symbol) * 
                 FROM crypto_prices 
-                ORDER BY id, fetched_at DESC;
+                ORDER BY symbol, fetched_at DESC;
             """))
             rows = [dict(row._mapping) for row in result]
         return jsonify({
