@@ -13,7 +13,8 @@ def get_data():
             df = pd.read_sql(
                 text(
                     """
-                    SELECT DISTINCT ON (symbol) id, symbol, price, fetched_at
+                    SELECT DISTINCT ON (symbol)
+                        id, symbol, current_price, market_cap, total_volume, market_cap_to_volume, fetched_at
                     FROM crypto_prices
                     ORDER BY symbol, fetched_at DESC;
                     """
@@ -36,7 +37,8 @@ def get_raw():
             result = conn.execute(
                 text(
                     """
-                    SELECT DISTINCT ON (symbol) id, symbol, price, fetched_at
+                    SELECT DISTINCT ON (symbol)
+                        id, symbol, current_price, market_cap, total_volume, market_cap_to_volume, fetched_at
                     FROM crypto_prices
                     ORDER BY symbol, fetched_at DESC;
                     """
