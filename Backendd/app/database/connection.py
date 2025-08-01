@@ -1,7 +1,7 @@
 import os
 import logging
 from datetime import datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
@@ -58,7 +58,7 @@ def ensure_table_and_index() -> None:
         )
 
 
-def insert_price(symbol: str, price: float, fetched_at: datetime | None = None) -> None:
+def insert_price(symbol: str, price: float, fetched_at: Optional[datetime] = None) -> None:
     """
     Inserts a new price record for a symbol.
     """
