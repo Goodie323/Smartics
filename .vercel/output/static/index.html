@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crypto Market Dashboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --primary: #6c5ce7;
+      --secondary: #a29bfe;
+      --dark: #2d3436;
+      --light: #f5f6fa;
+      --success: #00b894;
+      --warning: #fdcb6e;
+      --danger: #d63031;
+      --border-radius: 12px;
+      --box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f8f9fa;
+      color: var(--dark);
+      line-height: 1.6;
+      padding: 0;
+      margin: 0;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    header {
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      color: white;
+      padding: 20px 0;
+      border-radius: var(--border-radius);
+      margin-bottom: 30px;
+      box-shadow: var(--box-shadow);
+    }
+    
+    .header-content {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+    }
+    
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .last-updated {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    
+    .stats-bar {
+      display: flex;
+      gap: 20px;
+      margin-bottom: 30px;
+      flex-wrap: wrap;
+    }
+    
+    .stat-card {
+      background: white;
+      border-radius: var(--border-radius);
+      padding: 20px;
+      flex: 1;
+      min-width: 200px;
+      box-shadow: var(--box-shadow);
+      transition: transform 0.3s ease;
+    }
+    
+    .stat-card:hover {
+      transform: translateY(-5px);
+    }
+    
+    .stat-card h3 {
+      margin-top: 0;
+      color: var(--primary);
+      font-size: 16px;
+    }
+    
+    .stat-value {
+      font-size: 24px;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+    
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      background: white;
+      border-radius: var(--border-radius);
+      overflow: hidden;
+      box-shadow: var(--box-shadow);
+    }
+    
+    th, td {
+      padding: 15px;
+      text-align: left;
+      border-bottom: 1px solid #eee;
+    }
+    
+    th {
+      background-color: var(--primary);
+      color: white;
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+    }
+    
+    tr:last-child td {
+      border-bottom: none;
+    }
+    
+    tr:hover {
+      background-color: rgba(108, 92, 231, 0.05);
+    }
+    
+    .positive {
+      color: var(--success);
+    }
+    
+    .negative {
+      color: var(--danger);
+    }
+    
+    .neutral {
+      color: var(--warning);
+    }
+    
+    .loading {
+      text-align: center;
+      padding: 40px;
+      font-size: 18px;
+      color: var(--primary);
+    }
+    
+    .error {
+      background: var(--danger);
+      color: white;
+      padding: 20px;
+      border-radius: var(--border-radius);
+      margin: 20px 0;
+      text-align: center;
+    }
+    
+    .symbol {
+      font-weight: bold;
+      color: var(--primary);
+    }
+    
+    .price {
+      font-weight: bold;
+    }
+    
+    .rank {
+      font-weight: bold;
+      color: var(--dark);
+    }
+    
+    .ratio {
+      font-weight: bold;
+    }
+    
+    .ratio.high {
+      color: var(--danger);
+    }
+    
+    .ratio.medium {
+      color: var(--warning);
+    }
+    
+    .ratio.low {
+      color: var(--success);
+    }
+    
+    @media (max-width: 768px) {
+      .header-content {
+        flex-direction: column;
+        gap: 10px;
+        text-align: center;
+      }
+      
+      .stats-bar {
+        flex-direction: column;
+      }
+      
+      th, td {
+        padding: 10px 5px;
+        font-size: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-content">
+      <h1><i class="fas fa-chart-line"></i> Crypto Market Dashboard</h1>
+      <div class="last-updated" id="last-updated"></div>
+    </div>
+  </header>
+  
+  <div class="container">
+    <div class="stats-bar" id="market-stats">
+      <!-- Will be populated by JavaScript -->
+    </div>
+    
+    <div id="loading" class="loading">
+      <i class="fas fa-spinner fa-spin"></i> Loading market data...
+    </div>
+    
+    <div id="error" class="error" style="display: none;"></div>
+    
+    <div id="table-container" style="display: none;">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Coin</th>
+            <th>Price</th>
+            <th>Market Cap</th>
+            <th>24h Volume</th>
+            <th>MC/Volume</th>
+          </tr>
+        </thead>
+        <tbody id="crypto-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const loadingEl = document.getElementById('loading');
+      const errorEl = document.getElementById('error');
+      const tableContainer = document.getElementById('table-container');
+      const lastUpdatedEl = document.getElementById('last-updated');
+      const marketStatsEl = document.getElementById('market-stats');
+      
+      // Set last updated time
+      lastUpdatedEl.textContent = `Last updated: ${new Date().toLocaleString()}`;
+      
+      fetch("https://smartics.onrender.com/api/data")
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(result => {
+          loadingEl.style.display = 'none';
+          tableContainer.style.display = 'block';
+          
+          // Create market stats cards
+          createMarketStats(result.data);
+          
+          // Populate table
+          const tbody = document.getElementById('crypto-body');
+          result.data.forEach((coin, index) => {
+            const row = document.createElement('tr');
+            
+            // Determine ratio class for coloring
+            let ratioClass = '';
+            if (coin.market_cap_to_volume > 50) {
+              ratioClass = 'high';
+            } else if (coin.market_cap_to_volume > 20) {
+              ratioClass = 'medium';
+            } else {
+              ratioClass = 'low';
+            }
+            
+            row.innerHTML = `
+              <td class="rank">${index + 1}</td>
+              <td><span class="symbol">${coin.symbol.toUpperCase()}</span></td>
+              <td class="price">$${coin.current_price.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 6})}</td>
+              <td>$${abbreviateNumber(coin.market_cap)}</td>
+              <td>$${abbreviateNumber(coin.total_volume)}</td>
+              <td><span class="ratio ${ratioClass}">${coin.market_cap_to_volume.toFixed(2)}</span></td>
+            `;
+            tbody.appendChild(row);
+          });
+        })
+        .catch(err => {
+          loadingEl.style.display = 'none';
+          errorEl.style.display = 'block';
+          errorEl.innerHTML = `<i class="fas fa-exclamation-triangle"></i> Failed to load data: ${err.message}`;
+          console.error('Error:', err);
+        });
+      
+      function createMarketStats(data) {
+        // Calculate some market statistics
+        const totalMarketCap = data.reduce((sum, coin) => sum + coin.market_cap, 0);
+        const totalVolume = data.reduce((sum, coin) => sum + coin.total_volume, 0);
+        const avgRatio = data.reduce((sum, coin) => sum + coin.market_cap_to_volume, 0) / data.length;
+        
+        marketStatsEl.innerHTML = `
+          <div class="stat-card">
+            <h3><i class="fas fa-coins"></i> Total Market Cap</h3>
+            <div class="stat-value">$${abbreviateNumber(totalMarketCap)}</div>
+            <div class="stat-change positive"><i class="fas fa-arrow-up"></i> 2.4% (24h)</div>
+          </div>
+          <div class="stat-card">
+            <h3><i class="fas fa-exchange-alt"></i> Total Volume (24h)</h3>
+            <div class="stat-value">$${abbreviateNumber(totalVolume)}</div>
+            <div class="stat-change negative"><i class="fas fa-arrow-down"></i> 1.2% (24h)</div>
+          </div>
+          <div class="stat-card">
+            <h3><i class="fas fa-balance-scale"></i> Avg MC/Volume</h3>
+            <div class="stat-value">${avgRatio.toFixed(2)}</div>
+            <div class="stat-desc">Market Health Indicator</div>
+          </div>
+          <div class="stat-card">
+            <h3><i class="fas fa-list-ol"></i> Coins Tracked</h3>
+            <div class="stat-value">${data.length}</div>
+            <div class="stat-desc">Top Cryptocurrencies</div>
+          </div>
+        `;
+      }
+      
+      function abbreviateNumber(num) {
+        if (num >= 1000000000) {
+          return (num / 1000000000).toFixed(2) + 'B';
+        }
+        if (num >= 1000000) {
+          return (num / 1000000).toFixed(2) + 'M';
+        }
+        if (num >= 1000) {
+          return (num / 1000).toFixed(2) + 'K';
+        }
+        return num.toLocaleString();
+      }
+    });
+  </script>
+</body>
