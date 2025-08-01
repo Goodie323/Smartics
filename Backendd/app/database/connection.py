@@ -14,6 +14,7 @@ DATABASE_URL = os.getenv("DATABASE_URL") or (
     "postgresql://smartics_db_user:1NK7RyePl1dnGRDweGq17NEs1Zj98isu"
     "@dpg-d252f79r0fns73dl8b70-a:5432/smartics_db"
 )
+logger.info("Effective DATABASE_URL (masked): %s", DATABASE_URL.replace("1NK7RyePl1dnGRDweGq17NEs1Zj98isu", "*****"))
 
 # SQLAlchemy engine exposed for the app
 engine: Engine = create_engine(
