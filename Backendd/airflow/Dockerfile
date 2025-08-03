@@ -1,8 +1,20 @@
-FROM apache/airflow:2.7.3-python3.9-slim
+FROM python:3.9-slim
 
 WORKDIR /opt/airflow
 
-# Install Python packages for your DAGs
+# Install system dependencies for Airflow + psycopg2
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    default-libmysqlclient-dev \
+    libpq-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Airflow (core) + providers you need
+ENV AIRFLOW_VERSION=2.7.3
+RUN pip install --no-cache-dir "apache-airflow==${AIRFLOW_VERSION}" psycopg2-binary pandas requests
+
+# Copy requirements for your DAG (if any extra deps)
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
@@ -13,5 +25,5 @@ COPY run_etl_manual.py /opt/airflow/
 
 ENV PYTHONUNBUFFERED=1
 
-# Start only scheduler + webserver (less memory than standalone)
+# Start scheduler + webserver (memory friendly)
 CMD ["bash", "-lc", "export AIRFLOW__WEBSERVER__WEB_SERVER_PORT=$PORT && airflow db init && airflow scheduler & airflow webserver"]
