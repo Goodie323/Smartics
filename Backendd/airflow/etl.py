@@ -7,6 +7,9 @@ import psycopg2
 import os
 import logging
 
+# === FIX: missing import used inside load_to_postgres ===
+from datetime import datetime as dt
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -23,7 +26,7 @@ def extract_crypto_data():
             'sparkline': False
         }
         response = requests.get(url, params=params)
-        response.raise_for_status()  # Raise exception for bad responses
+        response.raise_for_status()
         data = response.json()
         df = pd.DataFrame(data)
         df.to_csv('/opt/airflow/crypto_data.csv', index=False)
@@ -38,7 +41,11 @@ def transform_data():
     try:
         df = pd.read_csv('/opt/airflow/crypto_data.csv')
         df = df[['id', 'symbol', 'current_price', 'market_cap', 'total_volume']]
-        df['market_cap_to_volume'] = df['market_cap'] / df['total_volume']
+        # Avoid division by zero
+        df['market_cap_to_volume'] = df.apply(
+            lambda r: r['market_cap'] / r['total_volume'] if r['total_volume'] else None,
+            axis=1
+        )
         df.to_csv('/opt/airflow/crypto_data_cleaned.csv', index=False)
         logger.info("Transformation complete")
     except Exception as e:
@@ -48,44 +55,48 @@ def transform_data():
 # Load
 def load_to_postgres():
     logger.info("Loading data to PostgreSQL...")
+    conn = None
+    cur = None
     try:
         df = pd.read_csv('/opt/airflow/crypto_data_cleaned.csv')
-        df['fetched_at'] = datetime.utcnow()
+        df['fetched_at'] = dt.utcnow()
 
-        # Use Render database URL
         DATABASE_URL = os.getenv("DATABASE_URL")
         if not DATABASE_URL:
             raise ValueError("DATABASE_URL environment variable not set!")
 
-        # Append sslmode if not present
-        if 'sslmode' not in DATABASE_URL:
-            DATABASE_URL += "?sslmode=require"
+        # === FIX: safely append sslmode if missing ===
+        if "sslmode" not in DATABASE_URL:
+            sep = "&" if "?" in DATABASE_URL else "?"
+            DATABASE_URL = f"{DATABASE_URL}{sep}sslmode=require"
 
         conn = psycopg2.connect(DATABASE_URL)
         cur = conn.cursor()
 
-        # Create table with schema matching Flask app
+        # === FIX: use symbol+fetched_at as composite primary key to avoid duplicates ===
         cur.execute("""
             CREATE TABLE IF NOT EXISTS crypto_prices (
-                id SERIAL PRIMARY KEY,
                 symbol TEXT,
                 price NUMERIC,
                 market_cap BIGINT,
                 total_volume BIGINT,
-                market_cap_to_volume FLOAT,
-                fetched_at TIMESTAMP
+                market_cap_to_volume DOUBLE PRECISION,
+                fetched_at TIMESTAMP,
+                PRIMARY KEY (symbol, fetched_at)
             )
         """)
 
-        # Insert data
+        insert_sql = """
+            INSERT INTO crypto_prices (
+                symbol, price, market_cap, total_volume, market_cap_to_volume, fetched_at
+            ) VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (symbol, fetched_at) DO NOTHING
+        """
+
         for _, row in df.iterrows():
-            cur.execute("""
-                INSERT INTO crypto_prices (
-                    symbol, price, market_cap, total_volume, market_cap_to_volume, fetched_at
-                ) VALUES (%s, %s, %s, %s, %s, %s)
-            """, (
+            cur.execute(insert_sql, (
                 row['symbol'],
-                row['current_price'],  # Map current_price to price
+                row['current_price'],  # mapped to price
                 row['market_cap'],
                 row['total_volume'],
                 row['market_cap_to_volume'],
@@ -93,13 +104,17 @@ def load_to_postgres():
             ))
 
         conn.commit()
-        logger.info("Data loaded successfully")
+        logger.info("Data loaded successfully, %d rows processed", len(df))
     except Exception as e:
-        logger.error(f"Failed to load data: {str(e)}")
+        if conn:
+            conn.rollback()
+        logger.error(f"Failed to load data: {e}", exc_info=True)
         raise
     finally:
-        cur.close()
-        conn.close()
+        if cur:
+            cur.close()
+        if conn:
+            conn.close()
 
 # DAG definition
 default_args = {
